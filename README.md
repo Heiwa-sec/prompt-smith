@@ -341,7 +341,7 @@ These are the details the author could not verify. They are listed here so nothi
 - Whether Claude Code passes text typed after `/prompt-smith` to the skill, and whether the `/reload-skills` and `/doctor` commands, the file-watching behavior, and the `~/.claude/skills/synced/` download behavior work as the Claude Code docs state. Those items are stated in the docs and not run against a live Claude Code.
 - Whether Prompt Cowboy itself asks clarifying questions. No public source the author could open documents that. The workflow in this repo is its own design. Prompt Cowboy's tagline is "Turn lazy prompts into great ones", and that tagline is all this repo refers to; the actual workflow of that product is unverified.
 - Some quoted guidance comes from Anthropic's docs as summarized by the author when this repo was written. Wording can drift from the live pages, and the docs change as new models ship.
-- Whether `gh attestation verify` behaves as described on your GitHub CLI version. The command is documented by GitHub, but the author had not run it against a release of this repo when this README was written.
+- Whether `gh attestation verify` behaves as described on your GitHub CLI version. The author ran it once against the v1.0.0 release ZIP with GitHub CLI 2.103.3 and it succeeded (exit code 0, no output on success); other versions were not tried.
 
 ## Limitations
 
