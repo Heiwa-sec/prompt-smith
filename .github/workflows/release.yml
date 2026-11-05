@@ -1,0 +1,40 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  integrity:
+    uses: ./.github/workflows/integrity.yml
+
+  release:
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Build the skill ZIP from the tagged commit
+        run: |
+          mkdir stage
+          git archive --prefix=prompt-smith/ HEAD SKILL.md README.md SECURITY.md LICENSE reference | tar -x -C stage
+          (cd stage && zip -rqX ../prompt-smith.zip prompt-smith)
+          sha256sum prompt-smith.zip > SHA256SUMS
+          cat SHA256SUMS
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: prompt-smith.zip
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" prompt-smith.zip SHA256SUMS --title "$GITHUB_REF_NAME" --generate-notes --verify-tag
