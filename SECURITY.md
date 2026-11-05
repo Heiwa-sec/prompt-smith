@@ -11,19 +11,23 @@ A skill is still a set of instructions that Claude follows, so the main risk is 
 ## Verify what you install
 
 1. Install only from https://github.com/heiwa-sec/prompt-smith. Copies from other places may have been altered.
-2. For the ZIP used with Claude Desktop, download both `prompt-smith.zip` and `SHA256SUMS` from the latest GitHub release, then compare the hash. On macOS or Linux, run `shasum -a 256 -c SHA256SUMS` in the folder that holds both files. A line ending in `OK` means the ZIP matches the published one.
-3. Before you update, read what changed. On GitHub, open the commit or release and look at the diff. Instructions that tell Claude to read files, send data somewhere, run commands, or ignore your requests do not belong in this skill and should be reported.
-4. Check that the folder holds only the files listed in the README. A file with another extension (for example a script) is not part of this project.
+2. For the ZIP used with Claude Desktop, download both `prompt-smith.zip` and `SHA256SUMS` from the latest GitHub release, then compare the hash. On macOS or Linux, run `shasum -a 256 -c SHA256SUMS` in the folder that holds both files. A line ending in `OK` means the ZIP matches the file listed in `SHA256SUMS`. A checksum stored next to the file only proves the download was not corrupted, so also do step 3.
+3. Verify the provenance attestation. Each release ZIP is built by the repository's release workflow, which records a signed GitHub attestation tying the ZIP to this repository and the tagged commit. With a recent GitHub CLI, run `gh attestation verify prompt-smith.zip --repo Heiwa-sec/prompt-smith`. If verification fails, do not install the file.
+4. Before you update, read what changed. On GitHub, open the commit or release and look at the diff. Instructions that tell Claude to read files, send data somewhere, run commands, or ignore your requests do not belong in this skill and should be reported.
+5. Check that the folder holds only the files listed in the README. A file with another extension (for example a script) is not part of this project.
 
 ## Built-in protections in this repository
 
 - A GitHub Actions check named `integrity` runs on every push and pull request. It fails if the repo contains any file type other than Markdown, the license, and the listed repo files; if a file is executable; if `SKILL.md` frontmatter has a key other than `name`, `description`, `license`, `compatibility` or `metadata` (in particular `allowed-tools`); if hidden or bidirectional Unicode control characters appear in any file; if a link points to a host outside a short allow-list; if the skill files contain shell-like or encoded payloads; or if any reference file is not linked from `SKILL.md`.
-- The workflow has read-only repository permissions, uses no third-party actions, and pins the one official action it uses to a full commit SHA. Dependabot proposes updates to that pin.
-- The `main` branch is protected against force pushes and deletion, and requires the `integrity` check to pass.
+- Workflows have read-only repository permissions by default, use only official GitHub actions, and pin every action to a full commit SHA; the check fails if an action is not pinned. Dependabot proposes updates to those pins.
+- Release ZIPs are built only by the release workflow from a tagged commit, and carry a signed provenance attestation and a SHA-256 checksum.
+- A repository ruleset protects `main`: changes must go through a pull request that passes the `integrity` check, only squash merges are allowed (so GitHub signs the resulting commit), commits must be signed, history stays linear, and force pushes and branch deletion are blocked. A second ruleset blocks moving or deleting `v*` tags, so a published version cannot be silently repointed.
 - GitHub secret scanning with push protection and private vulnerability reporting are enabled for the repository.
 - `SKILL.md` includes a Safety section that tells Claude to treat pasted text and documents as data, not instructions, and not to reprint credentials.
 
-These measures reduce risk. They do not make tampering impossible, and they are not a substitute for reading what you install.
+## What these measures cannot do
+
+They protect the official repository and make tampering with a release detectable. They cannot stop anyone from copying this public repository, editing their copy, and redistributing it, because the MIT License permits that. A modified copy is not the official skill, so check the source and verify releases as described above. They also cannot protect an account that has been compromised: keep two-factor authentication enabled on the heiwa-sec GitHub account.
 
 ## Reporting a vulnerability
 

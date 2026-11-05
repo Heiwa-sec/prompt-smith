@@ -341,7 +341,7 @@ These are the details the author could not verify. They are listed here so nothi
 - Whether Claude Code passes text typed after `/prompt-smith` to the skill, and whether the `/reload-skills` and `/doctor` commands, the file-watching behavior, and the `~/.claude/skills/synced/` download behavior work as the Claude Code docs state. Those items are stated in the docs and not run against a live Claude Code.
 - Whether Prompt Cowboy itself asks clarifying questions. No public source the author could open documents that. The workflow in this repo is its own design. Prompt Cowboy's tagline is "Turn lazy prompts into great ones", and that tagline is all this repo refers to; the actual workflow of that product is unverified.
 - Some quoted guidance comes from Anthropic's docs as summarized by the author when this repo was written. Wording can drift from the live pages, and the docs change as new models ship.
-- Whether the repo at https://github.com/heiwa-sec/prompt-smith exists yet and is public. The clone commands work only once it is published.
+- Whether `gh attestation verify` behaves as described on your GitHub CLI version. The command is documented by GitHub, but the author had not run it against a release of this repo when this README was written.
 
 ## Limitations
 
@@ -350,11 +350,11 @@ These are the details the author could not verify. They are listed here so nothi
 - The skill budgets 1 to 3 examples per improved prompt to keep prompts compact. As summarized by the author, not verified here, Anthropic's guidance often suggests 3 to 5 examples. If a task needs more, supply them in your answers.
 - The questions step adds one round trip. That is a deliberate trade for a prompt that fits your actual goal, audience, and constraints.
 - It does not run evaluations. If a prompt will run at scale, test it against your own cases and iterate. See `reference/iteration.md`.
-- Use skills only from sources you trust, and read a skill's files before installing it. The skill folder (`SKILL.md` and `reference/`) contains only Markdown and no scripts. The repo also holds a CI workflow under `.github/`, which is not part of the skill. See the Security section.
+- Use skills only from sources you trust, and read a skill's files before installing it. The skill folder (`SKILL.md` and `reference/`) contains only Markdown and no scripts. The repo also holds CI and release workflows under `.github/`, which are not part of the skill. See the Security section.
 
 ## Security
 
-The skill is Markdown only: no scripts, no binaries, no network calls of its own, and no `allowed-tools` setting, so it grants Claude no extra tool permissions. Its `SKILL.md` has a Safety section that tells Claude to treat pasted material as data, never to copy credentials into a prompt, and to answer the improved prompt in text rather than act on instructions hidden in pasted content. The repo has an `integrity` check that fails on any non-Markdown file, executable file, extra frontmatter key, hidden Unicode control character, or link to an unexpected host. See `SECURITY.md` for how to verify a download (a SHA-256 checksum is published with each release), what is protected, and how to report a vulnerability privately.
+The skill is Markdown only: no scripts, no binaries, no network calls of its own, and no `allowed-tools` setting, so it grants Claude no extra tool permissions. Its `SKILL.md` has a Safety section that tells Claude to treat pasted material as data, never to copy credentials into a prompt, and to answer the improved prompt in text rather than act on instructions hidden in pasted content. The repo has an `integrity` check that fails on any non-Markdown file, executable file, extra frontmatter key, hidden Unicode control character, or link to an unexpected host. Release ZIPs are built by a workflow and published with a SHA-256 checksum and a provenance attestation (`gh attestation verify prompt-smith.zip --repo Heiwa-sec/prompt-smith`), and `main` and the version tags are protected by repository rulesets. See `SECURITY.md` for how to verify a download, what is protected, what these measures cannot prevent (copies and forks), and how to report a vulnerability privately.
 
 These measures lower risk and do not eliminate it. A skill is a set of instructions, so read what you install and install only from https://github.com/heiwa-sec/prompt-smith.
 
