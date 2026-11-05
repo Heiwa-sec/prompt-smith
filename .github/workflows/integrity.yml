@@ -1,0 +1,122 @@
+name: integrity
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  integrity:
+    name: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Check the skill contains only reviewed Markdown and safe frontmatter
+        run: |
+          python3 -I - <<'PY'
+          import os, re, stat, sys
+
+          errors = []
+          ALLOWED_TOP = {"SKILL.md", "README.md", "SECURITY.md", "LICENSE", ".gitignore"}
+          ALLOWED_KEYS = {"name", "description", "license", "compatibility", "metadata"}
+          ALLOWED_HOSTS = {"code.claude.com", "platform.claude.com", "support.claude.com"}
+          HIDDEN = [(0x200B, 0x200F), (0x202A, 0x202E), (0x2060, 0x2064), (0x2066, 0x2069), (0xFEFF, 0xFEFF), (0xAD, 0xAD)]
+
+          def has_hidden(text):
+              return any(lo <= ord(c) <= hi for c in text for lo, hi in HIDDEN)
+          SHELLISH = re.compile(r"(curl|wget)\s|\|\s*(sh|bash|zsh)\b|\beval\s*\(|base64|\bsudo\b|rm\s+-rf|chmod\s", re.I)
+
+          files = []
+          for root, dirs, names in os.walk("."):
+              dirs[:] = [d for d in dirs if d != ".git"]
+              for n in names:
+                  files.append(os.path.relpath(os.path.join(root, n), "."))
+
+          for f in files:
+              top = f.split(os.sep)[0]
+              if top == ".github":
+                  continue
+              if top == "reference":
+                  if not f.endswith(".md") or f.count(os.sep) != 1:
+                      errors.append("unexpected file in reference/: " + f)
+              elif f not in ALLOWED_TOP:
+                  errors.append("unexpected file in repo root: " + f)
+              if os.stat(f).st_mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH):
+                  errors.append("executable bit set: " + f)
+
+          for f in files:
+              if f.startswith(".git" + os.sep) and not f.startswith(".github"):
+                  continue
+              try:
+                  text = open(f, encoding="utf-8").read()
+              except Exception:
+                  errors.append("not valid UTF-8 text: " + f)
+                  continue
+              if has_hidden(text):
+                  errors.append("hidden or bidirectional control character in " + f)
+              for url in re.findall(r"https?://[^\s)>\"'`]+", text):
+                  host = url.split("/")[2]
+                  if host == "github.com":
+                      if not (url.startswith("https://github.com/heiwa-sec") or url.startswith("https://github.com/actions/checkout")):
+                          errors.append("unexpected GitHub URL in %s: %s" % (f, url))
+                  elif host not in ALLOWED_HOSTS:
+                      errors.append("unexpected host in %s: %s" % (f, url))
+              if (f == "SKILL.md" or f.startswith("reference" + os.sep)) and SHELLISH.search(text):
+                  errors.append("shell-like or encoded-payload text in a skill-loaded file: " + f)
+
+          skill = open("SKILL.md", encoding="utf-8").read()
+          m = re.match(r"---\n(.*?)\n---\n", skill, re.S)
+          if not m:
+              errors.append("SKILL.md has no frontmatter")
+          else:
+              fm = m.group(1)
+              keys = re.findall(r"^([A-Za-z_-]+):", fm, re.M)
+              for k in keys:
+                  if k not in ALLOWED_KEYS:
+                      errors.append("frontmatter key not allowed: " + k)
+              if "allowed-tools" in fm:
+                  errors.append("allowed-tools must not be set")
+              nm = re.search(r"^name:\s*(\S+)\s*$", fm, re.M)
+              if not nm or nm.group(1) != "prompt-smith":
+                  errors.append("name must be prompt-smith")
+              d = re.search(r"^description:\s*>-\n((?:  .*\n?)+)", fm + "\n", re.M)
+              if not d:
+                  errors.append("description block not found")
+              else:
+                  desc = " ".join(l.strip() for l in d.group(1).splitlines())
+                  if len(desc) > 1024:
+                      errors.append("description longer than 1024 characters: %d" % len(desc))
+                  if "<" in desc or ">" in desc:
+                      errors.append("description contains angle brackets")
+          if len(skill.splitlines()) >= 500:
+              errors.append("SKILL.md is 500 lines or longer")
+
+          linked = set(re.findall(r"\]\((reference/[^)#]+)\)", skill))
+          for f in files:
+              if f.startswith("reference" + os.sep) and f not in linked:
+                  errors.append("reference file not linked from SKILL.md: " + f)
+
+          WF = os.path.join(".github", "workflows")
+          if os.path.isdir(WF):
+              for n in sorted(os.listdir(WF)):
+                  wtext = open(os.path.join(WF, n), encoding="utf-8").read()
+                  for ref in re.findall(r"^\s*-?\s*uses:\s*(\S+)", wtext, re.M):
+                      if not ref.startswith("./") and not re.search(r"@[0-9a-f]{40}$", ref):
+                          errors.append("workflow action not pinned to a full commit SHA in %s: %s" % (n, ref))
+                  if "pull_request" + "_target" in wtext:
+                      errors.append("the pull-request-target trigger is not allowed in " + n)
+
+          if errors:
+              print("INTEGRITY CHECK FAILED")
+              for e in errors:
+                  print(" - " + e)
+              sys.exit(1)
+          print("integrity check passed: %d files" % len(files))
+          PY
